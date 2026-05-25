@@ -23,10 +23,18 @@ from sqlalchemy.orm import Session as DBSession
 from .database import get_db
 from .models import User
 
-JWT_SECRET = os.getenv(
-    "ROULETTE_JWT_SECRET",
-    "dev-secret-change-me-before-deploying-CHANGE-ME-IN-PROD",
-)
+JWT_SECRET = os.getenv("ROULETTE_JWT_SECRET")
+if not JWT_SECRET:
+    # Dev-only fallback. In production you MUST set ROULETTE_JWT_SECRET to a
+    # long random value (e.g. `openssl rand -hex 32`). If you forget, anyone
+    # who knows this string can forge tokens.
+    JWT_SECRET = "dev-secret-change-me-before-deploying-CHANGE-ME-IN-PROD"
+    import warnings
+    warnings.warn(
+        "ROULETTE_JWT_SECRET not set — using insecure dev default. "
+        "Set this env var to a strong random value before deploying.",
+        RuntimeWarning,
+    )
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRES_DAYS = 7
 

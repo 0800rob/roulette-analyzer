@@ -1,9 +1,24 @@
+import os
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-DATABASE_URL = "sqlite:///./roulette.db"
+# Database URL is read from the DATABASE_URL env var (set by Fly.io / Render /
+# Railway / Supabase to a postgres:// URL). In dev, falls back to a local
+# SQLite file so the project still runs without configuration.
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./roulette.db")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Some hosting providers prefix Postgres URLs with "postgres://" but SQLAlchemy
+# 2.x expects "postgresql://". Auto-fix it so the user doesn't have to care.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# `check_same_thread` is a SQLite-specific quirk; for Postgres we don't pass it.
+_engine_kwargs = {}
+if DATABASE_URL.startswith("sqlite"):
+    _engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, **_engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -20,7 +35,19 @@ def get_db():
 
 
 def apply_lightweight_migrations() -> None:
-    """Add columns added in newer versions to existing SQLite databases."""
+    """Adds columns introduced after the original schema to existing SQLite DBs.
+
+    Only runs on SQLite — Postgres deployments start fresh and SQLAlchemy's
+    `create_all()` already creates every table/column from `models.py`.
+
+    SQLAlchemy doesn't auto-add new columns to existing tables, so we apply
+    the deltas manually via ALTER TABLE. Each statement is wrapped in a
+    try/except so it's safe to run repeatedly (already-applied migrations
+    just raise OperationalError, which we ignore).
+    """
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
     statements = [
         # Session.live_table
         "ALTER TABLE sessions ADD COLUMN live_table VARCHAR",

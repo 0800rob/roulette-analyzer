@@ -1,7 +1,13 @@
 import axios from 'axios';
 
+// Backend base URL — read from Vite env var so production builds (Vercel)
+// can point to the deployed Fly.io URL while dev keeps using localhost.
+// Define VITE_API_URL in a `.env.local` (dev) or in the Vercel project
+// settings (prod). Fallback is the local backend.
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
+
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: API_BASE_URL,
 });
 
 // Auth: token persisted in localStorage and attached to every request

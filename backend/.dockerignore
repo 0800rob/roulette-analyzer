@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+
+# Database — never bake the local DB into the image.
+*.db
+*.sqlite
+*.sqlite3
+
+# Local env files
+.env
+.env.local
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store

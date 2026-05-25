@@ -5,6 +5,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 import asyncio
 import json
+import os
 
 from .database import engine, get_db, Base, apply_lightweight_migrations
 from .models import Session, Spin, StrategyAlert, TrackedTrigger, User
@@ -40,10 +41,16 @@ apply_lightweight_migrations()
 
 app = FastAPI(title="Roulette Analyzer API", version="1.0.0")
 
-# CORS for frontend
+# CORS — origins are configurable via environment for production deployments.
+# In dev, defaults to the Vite dev server. In production, set CORS_ORIGINS to
+# a comma-separated list (e.g. "https://my-app.vercel.app,https://my-domain.com").
+_default_origins = "http://localhost:5173,http://localhost:3000"
+_cors_origins = [
+    o.strip() for o in os.getenv("CORS_ORIGINS", _default_origins).split(",") if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

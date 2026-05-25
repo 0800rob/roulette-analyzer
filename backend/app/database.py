@@ -1,0 +1,65 @@
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
+
+DATABASE_URL = "sqlite:///./roulette.db"
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def apply_lightweight_migrations() -> None:
+    """Add columns added in newer versions to existing SQLite databases."""
+    statements = [
+        # Session.live_table
+        "ALTER TABLE sessions ADD COLUMN live_table VARCHAR",
+        # Spin.external_id
+        "ALTER TABLE spins ADD COLUMN external_id VARCHAR",
+        "CREATE INDEX IF NOT EXISTS ix_spins_external_id ON spins(external_id)",
+        # tracked_triggers table
+        """CREATE TABLE IF NOT EXISTS tracked_triggers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            strategy VARCHAR NOT NULL,
+            status VARCHAR NOT NULL DEFAULT 'active',
+            started_at DATETIME,
+            resolved_at DATETIME,
+            started_spin_id INTEGER,
+            resolved_spin_id INTEGER,
+            resolved_number INTEGER,
+            payload TEXT NOT NULL,
+            spins_followed INTEGER NOT NULL DEFAULT 0
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_tracked_triggers_session ON tracked_triggers(session_id, strategy, status)",
+        # users table (auth + license)
+        """CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email VARCHAR NOT NULL UNIQUE,
+            password_hash VARCHAR NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            is_admin INTEGER NOT NULL DEFAULT 0,
+            expires_at DATETIME,
+            created_at DATETIME
+        )""",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users(email)",
+        # sessions.user_id (added when auth was introduced)
+        "ALTER TABLE sessions ADD COLUMN user_id INTEGER",
+        "CREATE INDEX IF NOT EXISTS ix_sessions_user_id ON sessions(user_id)",
+    ]
+    with engine.begin() as conn:
+        for sql in statements:
+            try:
+                conn.execute(text(sql))
+            except Exception:
+                pass

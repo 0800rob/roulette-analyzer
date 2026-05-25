@@ -1,0 +1,59 @@
+# =============================================================
+# Python (backend)
+# =============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Database files (contains user data — never commit!)
+*.db
+*.sqlite
+*.sqlite3
+roulette.db
+
+# =============================================================
+# Node / Frontend
+# =============================================================
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# =============================================================
+# Secrets / environment
+# =============================================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# =============================================================
+# IDE / OS
+# =============================================================
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# =============================================================
+# Project-specific
+# =============================================================
+# Don't commit the AI agent's spec files if you don't want them public
+# .kiro/
+
+# Build artefacts
+build/
+out/

@@ -14,7 +14,7 @@ from .schemas import (
     NumberFrequency, ColorStats, ParityStats, DozenStats,
     HotColdNumbers, SessionStats,
     PredictionItem, PredictionResponse,
-    GroupStrategyResponse, MonitorStrategyResponse,
+    GroupStrategyResponse,
     LiveTableInfo, SetLiveRequest, StrategyAlertResponse,
     ChaseStatus, ChaseStatusResponse,
     ChaseHistoryItem, ChaseHistoryResponse,
@@ -25,7 +25,6 @@ from .roulette_utils import get_color, get_dozen, calculate_longest_streak
 from .prediction_engine import (
     compute_predictions,
     compute_group_strategy,
-    compute_monitor_strategy,
     MIN_SPINS_REQUIRED,
 )
 from .scraper import SUPPORTED_TABLES
@@ -503,48 +502,6 @@ def get_group_strategy(
 
 
 
-# ============ MONITOR STRATEGY (STR 2) ============
-
-@app.get("/api/sessions/{session_id}/monitor-strategy", response_model=MonitorStrategyResponse)
-def get_monitor_strategy(
-    session_id: int,
-    user: User = Depends(require_license),
-    db: DBSession = Depends(get_db),
-):
-    """STR 2 — monitor numbers based on the last two spins.
-
-    Computes calc1=(prev+last)%36, calc2=|prev-last|, calc3=36-calc2 and
-    returns the union of the associated numbers for those three keys.
-    """
-    session = _get_user_session(session_id, user, db)
-
-    spins = (
-        db.query(Spin)
-        .filter(Spin.session_id == session_id)
-        .order_by(Spin.created_at.asc())
-        .all()
-    )
-    spin_numbers = [s.number for s in spins]
-
-    result = compute_monitor_strategy(spin_numbers)
-    if result is None:
-        return MonitorStrategyResponse(triggered=False)
-
-    return MonitorStrategyResponse(
-        triggered=result["triggered"],
-        awaiting_next=result.get("awaiting_next", False),
-        pair=result.get("pair", []),
-        current=result.get("current"),
-        second=result.get("second"),
-        calc1=result.get("calc1"),
-        calc2=result.get("calc2"),
-        calc3=result.get("calc3"),
-        associations=result.get("associations", {}),
-        monitored=result.get("monitored", []),
-    )
-
-
-
 # ============ LIVE SESSIONS ============
 
 @app.on_event("startup")
@@ -651,11 +608,8 @@ def _chase_to_status(strategy: str, chase: TrackedTrigger | None, db: DBSession)
         payload = {}
 
     marked = [int(n) for n in payload.get("marked_numbers", [])]
-    # hit_numbers is the strategy's "primary targets" (3 cheios on STR1, etc).
-    if strategy == "str1":
-        hits = [int(n) for n in payload.get("hit_numbers", [])]
-    else:
-        hits = marked  # STR2 has no notion of "hit vs neighbour"
+    # hit_numbers is the strategy's "primary targets" (3 cheios on STR1).
+    hits = [int(n) for n in payload.get("hit_numbers", [])]
 
     started_spin = (
         db.query(Spin).filter(Spin.id == chase.started_spin_id).first()
@@ -726,10 +680,8 @@ def get_chase_status(
     session = _get_user_session(session_id, user, db)
 
     str1_chase = _current_chase(db, session_id, "str1")
-    str2_chase = _current_chase(db, session_id, "str2")
     return ChaseStatusResponse(
         str1=_chase_to_status("str1", str1_chase, db),
-        str2=_chase_to_status("str2", str2_chase, db),
     )
 
 
@@ -760,10 +712,19 @@ def get_chase_history(
 
     items: list[ChaseHistoryItem] = []
     summary: dict[str, dict] = {
-        "str1": {"greens": 0, "avg_spins_to_green": 0.0},
-        "str2": {"greens": 0, "avg_spins_to_green": 0.0},
+        "str1": {
+            "greens": 0,
+            "avg_spins_to_green": 0.0,
+            "total_chips_bet": 0,
+            "total_chips_won": 0,
+            "total_net_chips": 0,
+            "roi_pct": 0.0,
+        },
     }
-    sums: dict[str, list[int]] = {"str1": [], "str2": []}
+    sums: dict[str, list[int]] = {"str1": []}
+
+    # European roulette straight-up payout: 35:1 (winner gets 36 chips back).
+    STRAIGHT_UP_RETURN = 36
 
     for row in rows:
         try:
@@ -772,10 +733,7 @@ def get_chase_history(
             payload = {}
 
         marked = [int(n) for n in payload.get("marked_numbers", [])]
-        if row.strategy == "str1":
-            hits = [int(n) for n in payload.get("hit_numbers", [])]
-        else:
-            hits = marked
+        hits = [int(n) for n in payload.get("hit_numbers", [])]
 
         started_spin = (
             db.query(Spin).filter(Spin.id == row.started_spin_id).first()
@@ -783,27 +741,51 @@ def get_chase_history(
             else None
         )
 
+        # PnL: for every spin in the chase we wager 1 chip on each marked number.
+        # If status == 'resolved', the last spin landed on one of those numbers,
+        # so we win 36 chips (paid only ONCE — straight up bets are independent).
+        chips_per_spin = len(marked)
+        spins = row.spins_followed or 0
+        chips_bet = spins * chips_per_spin
+        if row.status == "resolved":
+            chips_won = STRAIGHT_UP_RETURN
+        else:
+            chips_won = 0
+        net_chips = chips_won - chips_bet
+
         items.append(ChaseHistoryItem(
             id=row.id,
             strategy=row.strategy,
             status=row.status,
             started_at=row.started_at,
             resolved_at=row.resolved_at,
-            spins_followed=row.spins_followed or 0,
+            spins_followed=spins,
             started_spin_number=started_spin.number if started_spin else None,
             resolved_spin_number=row.resolved_number,
             marked_numbers=marked,
             hit_numbers=hits,
+            chips_bet=chips_bet,
+            chips_won=chips_won,
+            net_chips=net_chips,
         ))
 
         if row.strategy in summary and row.status == "resolved":
             summary[row.strategy]["greens"] += 1
-            sums[row.strategy].append(row.spins_followed or 0)
+            sums[row.strategy].append(spins)
+
+        if row.strategy in summary:
+            summary[row.strategy]["total_chips_bet"] += chips_bet
+            summary[row.strategy]["total_chips_won"] += chips_won
+            summary[row.strategy]["total_net_chips"] += net_chips
 
     for k in summary:
         n = len(sums[k])
         summary[k]["avg_spins_to_green"] = (
             round(sum(sums[k]) / n, 2) if n else 0.0
+        )
+        bet = summary[k]["total_chips_bet"]
+        summary[k]["roi_pct"] = (
+            round(summary[k]["total_net_chips"] / bet * 100, 2) if bet else 0.0
         )
 
     return ChaseHistoryResponse(items=items, summary=summary)

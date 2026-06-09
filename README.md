@@ -2,7 +2,7 @@
 
 Ferramenta de análise estatística do histórico de giros de roleta. **Não promete
 ganhos** — roleta é jogo de azar. O programa apenas detecta padrões e marca
-gatilhos de duas estratégias customizadas (STR1 e STR2) sobre os últimos giros.
+gatilhos da estratégia customizada (STR1) sobre os últimos giros.
 
 ## Estrutura do projeto
 
@@ -42,11 +42,9 @@ separadas.
 - Mesa de apostas + racetrack (estilo Evolution Auto-Roulette)
 - **STR 1 — Rugal**: detecta sequência de 3+ giros do mesmo grupo (1-9, 10-19,
   20-29, 30-36) e calcula a jogada (3 cheios + vizinhos na race).
-- **STR 2 — Monitor**: detecta par de giros consecutivos com diferença = 10 e
-  calcula 3 números a partir de `(soma % 36)`, `|diff|` e `36 - |diff|`.
 - **Modo ao vivo**: alimenta a sessão automaticamente da API pública do
   casinoscores (Auto Roulette da Evolution).
-- **Perseguição de gatilhos**: 1 gatilho ativo por estratégia até o alvo ser
+- **Perseguição de gatilhos**: 1 gatilho ativo por vez até o alvo ser
   atingido.
 - Sistema de contas com licença temporária e painel de administração.
 

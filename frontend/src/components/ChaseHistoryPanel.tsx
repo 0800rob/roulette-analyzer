@@ -57,7 +57,7 @@ function fmtTime(iso: string | null): string {
 }
 
 function HistoryRow({ item }: { item: ChaseHistoryItem }) {
-  const accent = item.strategy === 'str1' ? '#c9a96e' : '#00d4ff';
+  const accent = '#c9a96e';
   const isGreen = item.status === 'resolved';
   const stateBg = isGreen ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255,255,255,0.02)';
   const stateBorder = isGreen ? '#22c55e' : '#444';
@@ -173,7 +173,6 @@ export default function ChaseHistoryPanel({ history }: Props) {
 
   const items = history.items;
   const str1 = history.summary.str1 ?? { greens: 0, avg_spins_to_green: 0 };
-  const str2 = history.summary.str2 ?? { greens: 0, avg_spins_to_green: 0 };
 
   return (
     <div className="card" style={{ marginBottom: 0 }}>
@@ -186,12 +185,6 @@ export default function ChaseHistoryPanel({ history }: Props) {
           accent="#c9a96e"
           greens={str1.greens}
           avg={str1.avg_spins_to_green}
-        />
-        <StratBadge
-          label="STR 2 — MONITOR"
-          accent="#00d4ff"
-          greens={str2.greens}
-          avg={str2.avg_spins_to_green}
         />
       </div>
 

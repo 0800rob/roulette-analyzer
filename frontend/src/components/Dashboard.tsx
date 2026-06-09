@@ -5,7 +5,6 @@ import {
   Spin,
   Prediction,
   GroupStrategyResponse,
-  MonitorStrategyResponse,
   ChaseStatus,
   ChaseStatusResponse,
   ChaseHistoryResponse,
@@ -15,7 +14,6 @@ import {
   getSpins,
   getPredictions,
   getGroupStrategy,
-  getMonitorStrategy,
   getChaseStatus,
   getChaseHistory,
 } from '../api';
@@ -24,7 +22,6 @@ import Racetrack from './Racetrack';
 import HistoryGrid from './HistoryGrid';
 import PredictionPanel from './PredictionPanel';
 import GroupStrategyPanel from './GroupStrategyPanel';
-import MonitorStrategyPanel from './MonitorStrategyPanel';
 import LivePanel from './LivePanel';
 import ChasePanel from './ChasePanel';
 import ChaseHistoryPanel from './ChaseHistoryPanel';
@@ -130,9 +127,6 @@ export default function Dashboard({ session }: Props) {
   const [strategy, setStrategy] = useState<GroupStrategyResponse | null>(null);
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [strategyWindow, setStrategyWindow] = useState(7);
-  const [monitor, setMonitor] = useState<MonitorStrategyResponse | null>(null);
-  const [monitorLoading, setMonitorLoading] = useState(false);
-  const [activeStrategy, setActiveStrategy] = useState<'str1' | 'str2'>('str1');
   const [liveTable, setLiveTable] = useState<string | null>(session.live_table ?? null);
   const [chase, setChase] = useState<ChaseStatusResponse | null>(null);
   const [chaseHistory, setChaseHistory] = useState<ChaseHistoryResponse | null>(null);
@@ -161,18 +155,6 @@ export default function Dashboard({ session }: Props) {
       setStrategyLoading(false);
     }
   }, [session.id, strategyWindow]);
-
-  const loadMonitor = useCallback(async () => {
-    setMonitorLoading(true);
-    try {
-      const res = await getMonitorStrategy(session.id);
-      setMonitor(res.data);
-    } catch (err) {
-      console.error('Failed to fetch monitor strategy:', err);
-    } finally {
-      setMonitorLoading(false);
-    }
-  }, [session.id]);
 
   const loadStats = useCallback(async () => {
     const res = await getStats(session.id);
@@ -213,7 +195,6 @@ export default function Dashboard({ session }: Props) {
     loadAllSpins();
     loadPredictions();
     loadStrategy();
-    loadMonitor();
     loadChase();
     loadChaseHistory();
   }, [
@@ -221,7 +202,6 @@ export default function Dashboard({ session }: Props) {
     loadAllSpins,
     loadPredictions,
     loadStrategy,
-    loadMonitor,
     loadChase,
     loadChaseHistory,
   ]);
@@ -251,13 +231,9 @@ export default function Dashboard({ session }: Props) {
 
   const predictedNumbers = predictions.map((p) => p.number);
 
-  // The mesa/race highlight follows the ACTIVE chase of the selected strategy.
+  // The mesa/race highlight follows the ACTIVE chase of STR1.
   // While idle or just-resolved, no marks are drawn on the board.
-  const activeChase: ChaseStatus | null = chase
-    ? activeStrategy === 'str1'
-      ? chase.str1
-      : chase.str2
-    : null;
+  const activeChase: ChaseStatus | null = chase ? chase.str1 : null;
   const chaseIsActive = !!activeChase && activeChase.status === 'active';
   const strategyMarked: number[] = chaseIsActive ? activeChase!.marked_numbers : [];
   const strategyHits: number[] = chaseIsActive
@@ -355,7 +331,7 @@ export default function Dashboard({ session }: Props) {
 
           {chase && (
             <div className="prediction-panel-wrapper">
-              <ChasePanel str1={chase.str1} str2={chase.str2} />
+              <ChasePanel str1={chase.str1} />
             </div>
           )}
 
@@ -366,45 +342,13 @@ export default function Dashboard({ session }: Props) {
           )}
 
           <div className="prediction-panel-wrapper">
-            <div className="card" style={{ marginBottom: 0, padding: '12px 18px' }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: '#888', marginRight: 4 }}>
-                  ESTRATÉGIA ATIVA:
-                </span>
-                <button
-                  onClick={() => setActiveStrategy('str1')}
-                  className={activeStrategy === 'str1' ? 'btn-primary' : 'btn-secondary'}
-                  style={{ fontSize: 12 }}
-                >
-                  STR 1 — Rugal
-                </button>
-                <button
-                  onClick={() => setActiveStrategy('str2')}
-                  className={activeStrategy === 'str2' ? 'btn-primary' : 'btn-secondary'}
-                  style={{ fontSize: 12 }}
-                >
-                  STR 2 — Monitor
-                </button>
-              </div>
-            </div>
+            <GroupStrategyPanel
+              strategy={strategy}
+              loading={strategyLoading}
+              window={strategyWindow}
+              onWindowChange={setStrategyWindow}
+            />
           </div>
-
-          {activeStrategy === 'str1' && (
-            <div className="prediction-panel-wrapper">
-              <GroupStrategyPanel
-                strategy={strategy}
-                loading={strategyLoading}
-                window={strategyWindow}
-                onWindowChange={setStrategyWindow}
-              />
-            </div>
-          )}
-
-          {activeStrategy === 'str2' && (
-            <div className="prediction-panel-wrapper">
-              <MonitorStrategyPanel strategy={monitor} loading={monitorLoading} />
-            </div>
-          )}
 
           <div className="prediction-panel-wrapper">
             <PredictionPanel

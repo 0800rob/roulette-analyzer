@@ -3,8 +3,8 @@
 For every session whose `live_table` column is set, this scheduler:
   1. Fetches the most recent spins from the upstream API.
   2. Inserts any spins we don't already have (deduplicated by external_id).
-  3. After each new spin is added, runs the "chase tracker": each strategy
-     (STR1, STR2) follows ONE active trigger at a time. When the new spin
+  3. After each new spin is added, runs the "chase tracker": the STR1
+     strategy follows ONE active trigger at a time. When the new spin
      lands on a marked number, the chase resolves ("ALVO ATINGIDO"). If no
      chase is active and the strategy has a fresh trigger, a new chase opens.
 """
@@ -23,7 +23,6 @@ from .database import SessionLocal
 from .models import Session, Spin, StrategyAlert, TrackedTrigger
 from .prediction_engine import (
     compute_group_strategy,
-    compute_monitor_strategy,
 )
 from .roulette_utils import get_color
 from .scraper import fetch_recent_spins, ScraperError
@@ -72,11 +71,6 @@ def _poll_once_sync(db: DBSession) -> None:
 def _marked_numbers_str1(payload: dict) -> list[int]:
     """Numbers we're 'betting on' for STR1 (3 hits + neighbours)."""
     return [int(n) for n in payload.get("all_marked", [])]
-
-
-def _marked_numbers_str2(payload: dict) -> list[int]:
-    """Numbers we're 'betting on' for STR2 (the monitored set)."""
-    return [int(n) for n in payload.get("monitored", [])]
 
 
 def _process_chase(
@@ -211,11 +205,6 @@ def _ingest_session(
         str1_payload = str1 if (str1 and str1.get("triggered")) else None
         str1_marked = _marked_numbers_str1(str1_payload) if str1_payload else []
         _process_chase(db, sess, "str1", new_spin, str1_payload, str1_marked)
-
-        str2 = compute_monitor_strategy(all_numbers)
-        str2_payload = str2 if (str2 and str2.get("triggered")) else None
-        str2_marked = _marked_numbers_str2(str2_payload) if str2_payload else []
-        _process_chase(db, sess, "str2", new_spin, str2_payload, str2_marked)
 
     db.commit()
     logger.info(

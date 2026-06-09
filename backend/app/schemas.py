@@ -116,21 +116,6 @@ class GroupStrategyResponse(BaseModel):
 
 
 
-# --- Monitor Strategy (STR 2) ---
-class MonitorStrategyResponse(BaseModel):
-    triggered: bool
-    awaiting_next: bool = False
-    pair: list[int] = []
-    current: int | None = None
-    second: int | None = None
-    calc1: int | None = None
-    calc2: int | None = None
-    calc3: int | None = None
-    associations: dict[str, list[int]] = {}
-    monitored: list[int] = []
-
-
-
 # --- Live tables / scraper integration ---
 class LiveTableInfo(BaseModel):
     key: str
@@ -168,14 +153,13 @@ class ChaseStatus(BaseModel):
 
 class ChaseStatusResponse(BaseModel):
     str1: ChaseStatus
-    str2: ChaseStatus
 
 
 
 # --- Chase history (resolved/expired triggers, for the log) ---
 class ChaseHistoryItem(BaseModel):
     id: int
-    strategy: str                # 'str1' | 'str2'
+    strategy: str                # 'str1'
     status: str                  # 'active' | 'resolved'
     started_at: Optional[datetime] = None
     resolved_at: Optional[datetime] = None
@@ -184,11 +168,24 @@ class ChaseHistoryItem(BaseModel):
     resolved_spin_number: Optional[int] = None
     marked_numbers: list[int] = []
     hit_numbers: list[int] = []
+    # PnL simulation: assumes 1 chip on each marked number per spin while
+    # chasing. Straight-up payout in European roulette is 35:1, so a hit
+    # returns 36 chips (35 winnings + the chip on the winning number).
+    chips_bet: int = 0           # total chips wagered (spins_followed * len(marked))
+    chips_won: int = 0           # 36 if resolved, 0 otherwise
+    net_chips: int = 0           # chips_won - chips_bet
 
 
 class ChaseHistoryResponse(BaseModel):
     items: list[ChaseHistoryItem]
-    summary: dict        # { 'str1': {wins, total, rate}, 'str2': {...} }
+    summary: dict        # see below
+    # per-strategy summary contains:
+    #   greens: int          (number of resolved chases)
+    #   avg_spins_to_green: float
+    #   total_chips_bet: int
+    #   total_chips_won: int
+    #   total_net_chips: int
+    #   roi_pct: float       (total_net_chips / total_chips_bet * 100)
 
 
 

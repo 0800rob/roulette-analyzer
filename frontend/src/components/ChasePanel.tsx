@@ -3,7 +3,6 @@ import { getNumberColor } from '../constants';
 
 interface Props {
   str1: ChaseStatus;
-  str2: ChaseStatus;
 }
 
 function fillColor(num: number): string {
@@ -55,7 +54,7 @@ function ChaseSlot({
   const isResolved = status.status === 'resolved';
 
   // Hit number = the one that resolved. For STR1 we also know the original
-  // 3 cheios (hit_numbers). For STR2 hit_numbers is the full monitored set.
+  // 3 cheios (hit_numbers).
   const primary = status.hit_numbers ?? [];
   const allMarked = status.marked_numbers ?? [];
   // Neighbours/extras = marked but not in primary (only meaningful for STR1)
@@ -197,13 +196,12 @@ function ChaseSlot({
   );
 }
 
-export default function ChasePanel({ str1, str2 }: Props) {
+export default function ChasePanel({ str1 }: Props) {
   return (
     <div className="card" style={{ marginBottom: 0 }}>
       <h2 style={{ margin: 0, marginBottom: 12 }}>🎯 Perseguição de gatilhos</h2>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <ChaseSlot status={str1} label="STR 1 — RUGAL" accent="#c9a96e" />
-        <ChaseSlot status={str2} label="STR 2 — MONITOR" accent="#00d4ff" />
       </div>
     </div>
   );

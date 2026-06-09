@@ -35,6 +35,12 @@ class Session(Base):
     live_table = Column(String, nullable=True)
     # Owner — null for legacy sessions created before auth was added.
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    # PnL simulation settings (per session)
+    # chip_value: monetary value of one chip placed on a single number.
+    # max_chase_spins: how many spins to follow a chase before giving up
+    # (NULL means follow forever).
+    chip_value = Column(Integer, nullable=False, default=1)
+    max_chase_spins = Column(Integer, nullable=True)
 
     spins = relationship("Spin", back_populates="session", cascade="all, delete-orphan")
     user = relationship("User", back_populates="sessions")
@@ -66,7 +72,7 @@ class StrategyAlert(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("sessions.id"), nullable=False)
     spin_id = Column(Integer, ForeignKey("spins.id"), nullable=True)
-    strategy = Column(String, nullable=False)  # 'str1' or 'str2'
+    strategy = Column(String, nullable=False)  # 'str1'
     payload = Column(String, nullable=False)   # JSON snapshot of the trigger
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -82,13 +88,14 @@ class TrackedTrigger(Base):
     Statuses:
         active   — currently being followed
         resolved — last spin landed on a marked number ("ALVO ATINGIDO")
+        lost     — chased for `max_chase_spins` without hitting; gave up
     """
 
     __tablename__ = "tracked_triggers"
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("sessions.id"), nullable=False)
-    strategy = Column(String, nullable=False)            # 'str1' or 'str2'
+    strategy = Column(String, nullable=False)            # 'str1'
     status = Column(String, nullable=False, default="active")
     started_at = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)

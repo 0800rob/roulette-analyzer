@@ -181,24 +181,6 @@ export const getGroupStrategy = (
   );
 
 
-// Monitor Strategy (STR 2)
-export interface MonitorStrategyResponse {
-  triggered: boolean;
-  awaiting_next?: boolean;
-  pair?: number[];
-  current?: number | null;
-  second?: number | null;
-  calc1?: number | null;
-  calc2?: number | null;
-  calc3?: number | null;
-  associations: Record<string, number[]>;
-  monitored: number[];
-}
-
-export const getMonitorStrategy = (sessionId: number) =>
-  api.get<MonitorStrategyResponse>(`/sessions/${sessionId}/monitor-strategy`);
-
-
 // Live tables / scraper integration
 export interface LiveTableInfo {
   key: string;
@@ -214,7 +196,7 @@ export const setSessionLive = (sessionId: number, table: string | null) =>
 // Strategy alerts (history of triggers)
 export interface StrategyAlert {
   id: number;
-  strategy: 'str1' | 'str2';
+  strategy: 'str1';
   created_at: string;
   spin_id: number | null;
   spin_number: number | null;
@@ -229,7 +211,7 @@ export const listAlerts = (sessionId: number, limit = 50) =>
 export type ChaseState = 'idle' | 'active' | 'resolved';
 
 export interface ChaseStatus {
-  strategy: 'str1' | 'str2';
+  strategy: 'str1';
   status: ChaseState;
   started_at: string | null;
   resolved_at: string | null;
@@ -243,7 +225,6 @@ export interface ChaseStatus {
 
 export interface ChaseStatusResponse {
   str1: ChaseStatus;
-  str2: ChaseStatus;
 }
 
 export const getChaseStatus = (sessionId: number) =>
@@ -253,7 +234,7 @@ export const getChaseStatus = (sessionId: number) =>
 // Chase history (resolved triggers log)
 export interface ChaseHistoryItem {
   id: number;
-  strategy: 'str1' | 'str2';
+  strategy: 'str1';
   status: 'active' | 'resolved';
   started_at: string | null;
   resolved_at: string | null;

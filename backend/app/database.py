@@ -83,6 +83,9 @@ def apply_lightweight_migrations() -> None:
         # sessions.user_id (added when auth was introduced)
         "ALTER TABLE sessions ADD COLUMN user_id INTEGER",
         "CREATE INDEX IF NOT EXISTS ix_sessions_user_id ON sessions(user_id)",
+        # sessions PnL settings (added with the chase-tracker simulation)
+        "ALTER TABLE sessions ADD COLUMN chip_value INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE sessions ADD COLUMN max_chase_spins INTEGER",
     ]
     with engine.begin() as conn:
         for sql in statements:
